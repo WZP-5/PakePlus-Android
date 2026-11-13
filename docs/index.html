@@ -1,11 +1,205 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus-Android</title>
-    </head>
-    <body>
-        <h1>PakePlus-Android</h1>
-    </body>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>曲线站台加宽计算器</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,sans-serif}
+body{background:#f4f7fa;padding:14px;color:#222}
+.container{max-width:720px;margin:0 auto}
+h1{font-size:20px;text-align:center;margin-bottom:16px;color:#1f4e79}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.card h2{font-size:16px;margin-bottom:12px;color:#222;border-left:4px solid #2b78e4;padding-left:8px}
+.input-wrap{display:flex;gap:12px;align-items:stretch}
+.input-col{flex:1 1 50%;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto;gap:8px}
+.mid-full{grid-column:1/-1}
+.svg-thumb{flex:1 1 50%;display:flex;align-items:center;justify-content:center}
+.svg-thumb svg{width:100%;height:auto;display:block}
+label{display:block;font-size:12.5px;margin-bottom:3px;color:#444}
+input,select{width:100%;padding:7px 9px;border:1px solid #ccd6e0;border-radius:8px;font-size:14px}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th,td{border:1px solid #dce4ec;padding:8px 5px;text-align:center;font-size:12.5px}
+th{background:#eef5fd}
+.note{margin-top:10px;font-size:12px;color:#555;line-height:1.5}
+@media(max-width:480px){.input-wrap{flex-direction:column}.input-col,.svg-thumb{flex:none;width:100%}}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>曲线站台加宽计算器</h1>
+  <div class="card">
+    <h2>公共输入</h2>
+    <div class="input-wrap">
+      <div class="input-col">
+        <div>
+          <label>站台高度 H (mm)</label>
+          <select id="H" onchange="calc()">
+            <option value="350">350</option>
+            <option value="500">500</option>
+            <option value="1250" selected>1250</option>
+          </select>
+        </div>
+        <div>
+          <label>水平宽度 (mm)</label>
+          <select id="Wstd" onchange="calc()">
+            <option value="1725">1725</option>
+            <option value="1750" selected>1750</option>
+            <option value="1780">1780</option>
+            <option value="1800">1800</option>
+          </select>
+        </div>
+        <div class="mid-full">
+          <label>曲线半径 R (m)</label>
+          <input id="R" type="number" value="1000" min="1" step="1" oninput="calc()">
+        </div>
+        <div>
+          <label>外轨超高 h (mm)</label>
+          <input id="h" type="number" value="0" min="0" step="1" oninput="calc()">
+        </div>
+        <div>
+          <label>渐变距离 X (m)</label>
+          <input id="X" type="number" value="0" min="0" max="27" step="0.1" oninput="calc()">
+        </div>
+      </div>
+      <div class="svg-thumb">
+        <svg viewBox="0 0 520 230" xmlns="http://www.w3.org/2000/svg">
+          <path id="outerEdge" d="M 10 95 Q 260 45 510 95" fill="none" stroke="#000" stroke-width="2"/>
+          <path id="innerEdge" d="M 10 155 Q 260 120 510 155" fill="none" stroke="#000" stroke-width="2"/>
+          <path d="M 10 115 Q 260 70 510 115" fill="none" stroke="#000" stroke-width="3"/>
+          <path d="M 10 135 Q 260 95 510 135" fill="none" stroke="#000" stroke-width="3"/>
+          <g id="sleepers"></g>
+          <text x="260" y="28" font-size="18" text-anchor="middle" dominant-baseline="middle" letter-spacing="2">外弯站台</text>
+          <text x="260" y="202" font-size="18" text-anchor="middle" dominant-baseline="middle" letter-spacing="2">内弯站台</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>一、阶梯式加宽</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>位置</th><th>R(m)</th><th>H(mm)</th><th>h(mm)</th><th>加宽值(mm)</th><th>水平宽度(mm)</th><th>半宽(mm)</th><th>全宽(mm)</th><th>上限(mm)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>W内</td><td id="sRin"></td><td id="sHin"></td><td id="shin"></td><td id="sBaseIn"></td><td id="sStdIn"></td><td id="sHalfIn"></td><td id="sFullIn"></td><td id="sLimIn"></td></tr>
+        <tr><td>W外</td><td id="sRout"></td><td>/</td><td>/</td><td id="sBaseOut"></td><td id="sStdOut"></td><td id="sHalfOut"></td><td id="sFullOut"></td><td id="sLimOut"></td></tr>
+      </tbody>
+    </table>
+    <div class="note">全部向上取整；全宽 = 加宽值 + 水平宽度；半宽 = ceil(加宽值 ÷ 2) + 水平宽度；允许上限 = 全宽 + 15 mm</div>
+  </div>
+  <div class="card">
+    <h2>二、渐变圆滑加宽</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>位置</th><th>R(m)</th><th>H(mm)</th><th>h(mm)</th><th>X(m)</th><th>渐变值(mm)</th><th>水平宽度(mm)</th><th>变加宽(mm)</th><th>上限(mm)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>W内</td><td id="gRin"></td><td id="gHin"></td><td id="ghin"></td><td id="gXin"></td><td id="gGradIn"></td><td id="gStdIn"></td><td id="gTotalIn"></td><td id="gLimIn"></td></tr>
+        <tr><td>W外</td><td id="gRout"></td><td>/</td><td>/</td><td id="gXout"></td><td id="gGradOut"></td><td id="gStdOut"></td><td id="gTotalOut"></td><td id="gLimOut"></td></tr>
+      </tbody>
+    </table>
+    <div class="note">渐变范围：内弯 X ≤ 27 m，外弯 X ≤ 22 m；渐变值按线性插值，向上取整。</div>
+  </div>
+</div>
+<script>
+function ceilInt(v){return Math.ceil(Number(v)||0)}
+function quadBezier(p0,p1,p2,t){
+  const x=(1-t)*(1-t)*p0[0]+2*(1-t)*t*p1[0]+t*t*p2[0];
+  const y=(1-t)*(1-t)*p0[1]+2*(1-t)*t*p1[1]+t*t*p2[1];
+  return [x,y];
+}
+function drawSleepers(){
+  const grp=document.getElementById("sleepers");
+  grp.innerHTML="";
+  const p0=[10,95],pc=[260,45],p2=[510,95];
+  const p0i=[10,155],pci=[260,120],p2i=[510,155];
+  const count=24;
+  for(let i=0;i<=count;i++){
+    const t=i/count;
+    const ptOuter=quadBezier(p0,pc,p2,t);
+    const ptInner=quadBezier(p0i,pci,p2i,t);
+    const dx=ptInner[0]-ptOuter[0];
+    const dy=ptInner[1]-ptOuter[1];
+    const len=Math.hypot(dx,dy);
+    const nx=dx/len,ny=dy/len;
+    const shrinkTop=len*0.125,seg=len/6,bottomMove=shrinkTop+seg*2;
+    const x1=ptOuter[0]+nx*shrinkTop;
+    const y1=ptOuter[1]+ny*shrinkTop+11;
+    const x2=ptInner[0]-nx*bottomMove;
+    const y2=ptInner[1]-ny*bottomMove+11;
+    const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+    line.setAttribute("x1",x1.toFixed(2));
+    line.setAttribute("y1",y1.toFixed(2));
+    line.setAttribute("x2",x2.toFixed(2));
+    line.setAttribute("y2",y2.toFixed(2));
+    line.setAttribute("stroke","#000");
+    line.setAttribute("stroke-width","3.6");
+    grp.appendChild(line);
+  }
+}
+function calc(){
+  const R=Number(document.getElementById('R').value)||1000;
+  const H=Number(document.getElementById('H').value)||1250;
+  const h=Number(document.getElementById('h').value)||0;
+  const X=Number(document.getElementById('X').value)||0;
+  const Wstd=Number(document.getElementById('Wstd').value)||1750;
+  const baseIn=ceilInt(40500/R+(H*h)/1500);
+  const baseOut=ceilInt(44000/R);
+  const fullIn=baseIn+Wstd;
+  const halfIn=ceilInt(baseIn/2)+Wstd;
+  const limitIn=fullIn+15;
+  const fullOut=baseOut+Wstd;
+  const halfOut=ceilInt(baseOut/2)+Wstd;
+  const limitOut=fullOut+15;
+  const maxXin=27,maxXout=22;
+  const useXin=Math.min(X,maxXin);
+  const useXout=Math.min(X,maxXout);
+  const gradIn=X<=0?0:ceilInt(baseIn*useXin/maxXin);
+  const gradOut=X<=0?0:ceilInt(baseOut*useXout/maxXout);
+  const totalGradIn=gradIn+Wstd;
+  const totalGradOut=gradOut+Wstd;
+  const gradLimitIn=totalGradIn+15;
+  const gradLimitOut=totalGradOut+15;
+
+  document.getElementById('sRin').textContent=R;
+  document.getElementById('sHin').textContent=H;
+  document.getElementById('shin').textContent=h;
+  document.getElementById('sBaseIn').textContent=baseIn;
+  document.getElementById('sStdIn').textContent=Wstd;
+  document.getElementById('sHalfIn').textContent=halfIn;
+  document.getElementById('sFullIn').textContent=fullIn;
+  document.getElementById('sLimIn').textContent=limitIn;
+
+  document.getElementById('sRout').textContent=R;
+  document.getElementById('sBaseOut').textContent=baseOut;
+  document.getElementById('sStdOut').textContent=Wstd;
+  document.getElementById('sHalfOut').textContent=halfOut;
+  document.getElementById('sFullOut').textContent=fullOut;
+  document.getElementById('sLimOut').textContent=limitOut;
+
+  document.getElementById('gRin').textContent=R;
+  document.getElementById('gHin').textContent=H;
+  document.getElementById('ghin').textContent=h;
+  document.getElementById('gXin').textContent=useXin;
+  document.getElementById('gGradIn').textContent=gradIn;
+  document.getElementById('gStdIn').textContent=Wstd;
+  document.getElementById('gTotalIn').textContent=totalGradIn;
+  document.getElementById('gLimIn').textContent=gradLimitIn;
+
+  document.getElementById('gRout').textContent=R;
+  document.getElementById('gXout').textContent=useXout;
+  document.getElementById('gGradOut').textContent=gradOut;
+  document.getElementById('gStdOut').textContent=Wstd;
+  document.getElementById('gTotalOut').textContent=totalGradOut;
+  document.getElementById('gLimOut').textContent=gradLimitOut;
+}
+drawSleepers();
+calc();
+</script>
+</body>
 </html>
